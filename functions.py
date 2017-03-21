@@ -103,7 +103,7 @@ def extract_features(imgs, color_space='YCrCb', spatial_size=(32, 32), hist_bins
 # Define a single function that can extract features using hog sub-sampling and make predictions
 def find_cars(img, ystart, ystop, scale, svc, X_scaler, color_space, orient, pix_per_cell, cell_per_block, hog_channel,
               spatial_size,
-              hist_bins):
+              hist_bins, report = False):
     draw_img = np.copy(img)
     img = img.astype(np.float32) / 255
     hot_windows = []
@@ -172,9 +172,12 @@ def find_cars(img, ystart, ystop, scale, svc, X_scaler, color_space, orient, pix
                 win_draw = np.int(window * scale)
                 hot_windows.append(((xbox_left, ytop_draw + ystart),
                               (xbox_left + win_draw, ytop_draw + win_draw + ystart)))
+                cv2.rectangle(draw_img,(xbox_left, ytop_draw+ystart),(xbox_left+win_draw,ytop_draw+win_draw+ystart),(0,0,255),6)
 
-    return hot_windows
-
+    if report == False:
+        return hot_windows
+    else:
+        return hot_windows, draw_img
 
 def add_heat(heatmap, bbox_list):
     # Iterate through list of bboxes
@@ -229,8 +232,7 @@ def process_frame(frame, heat, y_start, y_stop, scales, svc, X_scaler, color_spa
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
     draw_img = draw_labeled_bboxes(draw_image, labels)
-
-    return draw_image, heat
+    return draw_img, heat
 
 
 def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
@@ -279,3 +281,68 @@ def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
         cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
     # Return the image copy with boxes drawn
     return imcopy
+
+def process_frame_for_report(frame, heat, y_start, y_stop, scales, svc, X_scaler, color_space, orient, pix_per_cell, cell_per_block, hog_channel, spatial_size, hist_bins):
+    alpha = 0.4
+    draw_image = np.copy(frame)
+    heatmaps = []
+    current_heat = np.zeros_like(frame[:, :, 0]).astype(np.float)
+    for i, scale in enumerate(scales):
+        hot_windows, box_img = find_cars(frame, y_start[i], y_stop[i], scale, svc, X_scaler, color_space, orient, pix_per_cell, cell_per_block, hog_channel, spatial_size, hist_bins, report = True)
+        # Add heat to each box in box list to get current heatmap
+        current_heat = add_heat(current_heat, hot_windows)
+
+    # Apply threshold to help remove false positives
+    heat = alpha * current_heat + (1.-alpha) * heat
+    heat = apply_threshold(heat, 1.)
+
+    # Visualize the heatmap when displaying
+    heatmap = np.clip(heat, 0, 255)
+
+    # Find final boxes from heatmap using label function
+    labels = label(heatmap)
+    draw_img = draw_labeled_bboxes(draw_image, labels)
+
+    return draw_img, heat, box_img, labels
+
+
+def draw_multi_scale_windows(img, ystart, ystop, scale, pix_per_cell, orient, cell_per_block, color):
+    draw_img = np.copy(img)
+    img = img.astype(np.float32) / 255
+
+    img_tosearch = img[ystart:ystop, :, :]
+    imshape = img_tosearch.shape
+    img_tosearch = cv2.resize(img_tosearch, (np.int(imshape[1] / scale), np.int(imshape[0] / scale)))
+
+    # Define blocks and steps as above
+    nxblocks = (img_tosearch.shape[1] // pix_per_cell) - 1
+    nyblocks = (img_tosearch.shape[0] // pix_per_cell) - 1
+    nfeat_per_block = orient * cell_per_block ** 2
+
+    window = 64
+    nblocks_per_window = (window // pix_per_cell) - 1
+    cells_per_step = 2  # Instead of overlap, define how many cells to step
+    nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
+    nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+
+    rect_start = None
+    rect_end = None
+    for xb in range(nxsteps + 1):
+        for yb in range(nysteps + 1):
+            ypos = yb * cells_per_step
+            xpos = xb * cells_per_step
+
+            xleft = xpos * pix_per_cell
+            ytop = ypos * pix_per_cell
+
+            xbox_left = np.int(xleft * scale)
+            ytop_draw = np.int(ytop * scale)
+            win_draw = np.int(window * scale)
+            rect_start = (xbox_left, ytop_draw + ystart)
+            rect_end = (xbox_left + win_draw, ytop_draw + win_draw + ystart)
+            cv2.rectangle(draw_img, rect_start, rect_end, color, 6)
+
+    cv2.rectangle(draw_img, rect_start, rect_end, color, 6)
+
+    return draw_img
+

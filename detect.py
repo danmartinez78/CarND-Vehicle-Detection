@@ -1,5 +1,6 @@
 import skvideo.io
-from funcs import *
+import pickle
+from functions import *
 
 dist_pickle = pickle.load(open("vehicle_svc.p", "rb"))
 svc = dist_pickle["svc"]
@@ -22,9 +23,9 @@ scales = [1.25, 1.5]
 image = mpimg.imread('./test_images/test1.jpg')
 heat = np.zeros_like(image[:,:,0]).astype(np.float)
 # open stream
-path = 'project_video.mp4'
-save = True
-debug = False
+path = 'test_video.mp4'
+save = False
+debug = True
 stream = skvideo.io.vread(path)
 cv2.waitKey(500)
 print("got stream")

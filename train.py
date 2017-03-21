@@ -7,7 +7,7 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import pickle
 
-from funcs import *
+from functions import *
 
 # Read in cars and notcars
 cars = glob.iglob('data/vehicles/**/*.png')
@@ -94,25 +94,27 @@ y_stop = [500,  656]
 scales = [1.25, 1.5]
 
 heat = np.zeros_like(img[:,:,0]).astype(np.float)
-out_img = process_frame(img, heat, y_start, y_stop, scales, svc, X_scaler, color_space, orient, pix_per_cell, cell_per_block, hog_channel, spatial_size, hist_bins)
+out_img, heat = process_frame(img, heat, y_start, y_stop, scales, svc, X_scaler, color_space, orient, pix_per_cell, cell_per_block, hog_channel, spatial_size, hist_bins)
 plt.imshow(out_img)
 plt.show()
+cv2.waitKey(0)
 
 # generate report images
 plt.subplot(1,2,1)
-vehicle = plt.imread('dataset/vehicles/GTI_Far/image0024.png')
+vehicle = plt.imread('data/vehicles/GTI_Far/image0024.png')
 plt.imshow(vehicle)
 plt.title('Vehicle')
 plt.xticks([])
 plt.yticks([])
 
 plt.subplot(1,2,2)
-non_vehicle = plt.imread('dataset/non-vehicles/GTI/image0024.png')
+non_vehicle = plt.imread('data/non-vehicles/GTI/image24.png')
 plt.imshow(non_vehicle)
 plt.title('Non-Vehicle')
 plt.xticks([])
 plt.yticks([])
 
+plt.clf()
 plt.subplot(1,2,1)
 plt.imshow(vehicle)
 plt.title('Vehicle')
